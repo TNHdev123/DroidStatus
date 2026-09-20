@@ -24,10 +24,9 @@ jobs:
         echo "THEOS=~/theos" >> $GITHUB_ENV
         git clone --recursive https://github.com/theos/theos.git ~/theos
         
-        # 下載官方修復版 SDK (支援 iOS 16+ / iOS 18 Rootless 構建)
-        curl -LO https://github.com/theos/sdks/releases/download/v16.5/iPhoneOS16.5.sdk.tar.xz
-        tar -xf iPhoneOS16.5.sdk.tar.xz -C ~/theos/sdks
-        rm iPhoneOS16.5.sdk.tar.xz
+        # 下載官方 SDKS (使用 git 直接 clone，最穩定且不會有轉址下載失敗問題)
+        git clone --depth=1 https://github.com/theos/sdks.git ~/theos/sdks
+
 
     - name: 編譯 Tweak (.deb)
       run: |
