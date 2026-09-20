@@ -1,0 +1,41 @@
+name: Build Rootless Tweak
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: 檢出原始碼
+      uses: actions/checkout@v4
+
+    - name: 安裝系統依賴 (ldid & dpkg)
+      run: |
+        brew install ldid dpkg
+
+    - name: 設定 Theos 環境與 SDK
+      run: |
+        echo "THEOS=~/theos" >> $GITHUB_ENV
+        git clone --recursive https://github.com/theos/theos.git ~/theos
+        
+        # 下載官方修復版 SDK (支援 iOS 16+ / iOS 18 Rootless 構建)
+        curl -LO https://github.com/theos/sdks/releases/download/v16.5/iPhoneOS16.5.sdk.tar.xz
+        tar -xf iPhoneOS16.5.sdk.tar.xz -C ~/theos/sdks
+        rm iPhoneOS16.5.sdk.tar.xz
+
+    - name: 編譯 Tweak (.deb)
+      run: |
+        export THEOS=~/theos
+        make package FINALPACKAGE=1
+
+    - name: 上傳 Artifact (.deb 安裝包)
+      uses: actions/upload-artifact@v4
+      with:
+        name: DroidStatus-Rootless-Deb
+        path: packages/*.deb
