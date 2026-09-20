@@ -1,0 +1,9 @@
+Package: com.yourname.droidstatus
+Name: DroidStatus
+Depends: mobilesubstrate (>= 0.9.5000)
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: iOS 18 Rootless Tweak - Adds a black top status bar background in portrait mode for apps.
+Maintainer: Developer <tnhdev123@outlook.com>
+Author: Developer <tnhdev@outlook.com>
+Section: Tweaks
