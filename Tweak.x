@@ -32,18 +32,8 @@
 - (void)updateDroidStatusOverlay {
     UIEdgeInsets insets = self.safeAreaInsets;
     
-    // 取得當前螢幕方向
-    UIInterfaceOrientation orientation = UIInterfaceOrientationUnknown;
-    if (@available(iOS 13.0, *)) {
-        if (self.windowScene) {
-            orientation = self.windowScene.interfaceOrientation;
-        }
-    }
-    if (orientation == UIInterfaceOrientationUnknown) {
-        orientation = [UIApplication sharedApplication].statusBarOrientation;
-    }
-
-    BOOL isPortrait = UIInterfaceOrientationIsPortrait(orientation);
+    // 依據 View 高寬比判定直橫向，完全避免使用已廢棄的 statusBarOrientation API
+    BOOL isPortrait = self.bounds.size.height >= self.bounds.size.width;
 
     // 建立黑色覆蓋層（若尚未建立）
     if (self.droidStatusOverlayView == nil) {
