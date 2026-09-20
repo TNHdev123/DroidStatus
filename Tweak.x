@@ -5,6 +5,13 @@
 - (void)updateDroidStatusOverlay;
 @end
 
+// 1. 強制將 iOS 底層狀態列所有圖示與文字（時間、電量、訊號等）設為純白色
+%hook _UIStatusBar
+- (void)setForegroundColor:(UIColor *)color {
+    %orig([UIColor whiteColor]);
+}
+%end
+
 %hook UIWindow
 
 %property (nonatomic, strong) UIView *droidStatusOverlayView;
@@ -12,16 +19,8 @@
 - (void)layoutSubviews {
     %orig;
 
-    // 1. 嚴格排除 SpringBoard 進程 (包含主畫面、控制中心、鎖屏)
-    NSString *processName = [NSProcessInfo processInfo].processName;
-    NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
-    if ([processName isEqualToString:@"SpringBoard"] || 
-        [bundleIdentifier isEqualToString:@"com.apple.springboard"]) {
-        return;
-    }
-
-    // 2. 僅針對擁有 rootViewController 的 App 主視窗生效，避開系統彈窗與透明背景層
-    if (self.rootViewController == nil) {
+    // 僅針對主 UIWindow 處理，避開內部鍵盤與彈窗視窗
+    if (![self isKeyWindow] && ![NSStringFromClass([self class]) isEqualToString:@"UIWindow"]) {
         return;
     }
 
@@ -32,7 +31,7 @@
 - (void)updateDroidStatusOverlay {
     UIEdgeInsets insets = self.safeAreaInsets;
     
-    // 依據 View 高寬比判定直橫向，完全避免使用已廢棄的 statusBarOrientation API
+    // 依據視窗高寬比判定直橫向
     BOOL isPortrait = self.bounds.size.height >= self.bounds.size.width;
 
     // 建立黑色覆蓋層（若尚未建立）
@@ -40,9 +39,10 @@
         UIView *overlay = [[UIView alloc] initWithFrame:CGRectZero];
         overlay.backgroundColor = [UIColor blackColor];
         
-        // 手勢穿透，確保不干擾狀態列點擊
+        // 手勢穿透，確保不干擾狀態列點擊（如點擊返回頂部）
         overlay.userInteractionEnabled = NO;
         
+        [self addSubview:overlay];
         self.droidStatusOverlayView = overlay;
     }
 
@@ -51,21 +51,8 @@
         self.droidStatusOverlayView.hidden = NO;
         self.droidStatusOverlayView.frame = CGRectMake(0, 0, self.bounds.size.width, insets.top);
         
-        // 尋找狀態列 View，確保黑色遮罩位於狀態列「下方」，避免遮擋時間與電量
-        UIView *statusBarView = nil;
-        for (UIView *subview in self.subviews) {
-            NSString *className = NSStringFromClass([subview class]);
-            if ([className containsString:@"StatusBar"]) {
-                statusBarView = subview;
-                break;
-            }
-        }
-
-        if (statusBarView) {
-            [self insertSubview:self.droidStatusOverlayView belowSubview:statusBarView];
-        } else {
-            [self addSubview:self.droidStatusOverlayView];
-        }
+        // 確保黑色背景位於 App 視窗最上層，填滿 Safe Area
+        [self bringSubviewToFront:self.droidStatusOverlayView];
     } else {
         self.droidStatusOverlayView.hidden = YES;
     }
@@ -73,15 +60,23 @@
 
 %end
 
-// 3. 強制將 App 的狀態列圖示與文字設定為白色
+// 2. 備用：覆蓋控制器層級的狀態列樣式為白色
 %hook UIViewController
-
 - (UIStatusBarStyle)preferredStatusBarStyle {
-    NSString *processName = [NSProcessInfo processInfo].processName;
-    if ([processName isEqualToString:@"SpringBoard"]) {
-        return %orig;
-    }
     return UIStatusBarStyleLightContent;
 }
-
 %end
+
+// 3. 全局構造函數：%ctor 在套件載入最前端執行
+%ctor {
+    @autoreleasepool {
+        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+        
+        // 若為 SpringBoard (主畫面/鎖屏/控制中心) 或無 Bundle ID 的系統進程，直接退出，不載入任何 Hook
+        if ([bundleID isEqualToString:@"com.apple.springboard"] || !bundleID) {
+            return;
+        }
+        
+        %init;
+    }
+}
